@@ -1,0 +1,94 @@
+You are working in an EMPTY folder. Create a complete, runnable educational enterprise-style application from scratch.
+
+APPLICATION: The Smallest Agent - Lesson 0 - Aspire + MAUI Blazor Hybrid + .NET 10 Web API edition.
+
+Create an independent folder 09-smallest-agent-aspire-maui and leave earlier applications, prompts and private files untouched. Save this standalone prompt beside the other root prompts as Prompt - Create the Enterprise Web Application from Scratch - Aspire MAUI DotNET10.txt and an identical BUILD-PROMPT.txt inside the new project. Never read, display, borrow or copy real .env files, user secrets or keys from other editions.
+
+STACK AND VERIFIED SDK DISTINCTION
+- Latest STABLE Aspire AppHost SDK and hosting package, verified from the official NuGet package index at implementation time. Baseline on 9 November 2026: Aspire.AppHost.Sdk and Aspire.Hosting.AppHost 13.6.4. Pin exact versions, never silently use a floating older template version.
+- Real .NET 10 Windows MAUI Blazor Hybrid client using native BlazorWebView, with a Razor class library shared by a browser companion. Native Razor components run in the desktop process; this is not a WebView pointed at the website and not a WebAssembly app.
+- Separate .NET 10 ASP.NET Core Web API owns all Claude calls and secrets. Both clients consume it with the same typed C# HTTP/SSE client and Aspire service discovery.
+- Official Anthropic C# Messages SDK from the user's reference: https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/csharp. Baseline package Anthropic 13.6.0. Be explicit: this package is not the separate CLI-backed Python/TypeScript Claude Agent SDK. This C# edition implements the same introductory one-prompt lesson as one model turn with no tools. Do not fabricate Agent SDK features/classes.
+- The official Aspire MAUI hosting integration is currently preview; baseline Aspire.Hosting.Maui 13.6.4-preview.1.26523.11. State this accurately and pin it separately from stable Aspire core.
+- Verified toolchain baseline: .NET SDK 10.0.300/runtime 10.0.8, installed maui-windows workload and Microsoft.Maui.Controls / Microsoft.AspNetCore.Components.WebView.Maui 10.0.20. Match package/workload compatibility; do not globally update the user's toolchain without need.
+- Native target: net10.0-windows10.0.19041.0. Do not claim Android/iOS/Mac packaging without generating, building and testing those targets. Use Windows workload and WebView2 prerequisites; no Python/Node runtime or Claude CLI bridge.
+- Consult primary sources: https://aspire.dev/integrations/dotnet/maui/, https://aspire.dev/get-started/app-host/, https://learn.microsoft.com/aspnet/core/blazor/hybrid/tutorials/maui-blazor-web-app?view=aspnetcore-10.0 and the supplied C# SDK page.
+
+SOLUTION AND RESOURCE GRAPH
+- Root SmallestAgent.slnx, global.json, Directory.Build.props, NuGet.Config, .gitignore, .env.example, README.md, ASSETS.md, VERIFICATION.md, BUILD-PROMPT.txt, Start-Application.ps1 and Start-Hybrid.ps1.
+- src/SmallestAgent.AppHost: stable Aspire SDK/hosting plus explicit preview MAUI package, API/browser resources, health gating, references and a Windows device target. Use AspireUseCliBundle=true with a matching bundle. No container dependency in the current graph.
+- Register the MAUI project by csproj path using AddMauiProject; DO NOT add a ProjectReference from AppHost to the native incompatible TFM. AddWindowsDevice uses WithReference(api), and the native resource remains explicit-start in the dashboard.
+- src/SmallestAgent.Api: Minimal API, official C# SDK service, bounded validated input, private settings, native Swagger/OpenAPI and safe SSE projections.
+- src/SmallestAgent.Shared: public contracts and typed HTTP/SSE client, shared Razor routes/lab/lessons/CodeBlock, safe presentation helpers, embedded generated teaching JSON and static CSS/astronaut/diagrams. No credential loading or SDK runtime imports in this project.
+- src/SmallestAgent.Web: interactive-server browser companion consuming the RCL and API. Render modes belong in the web host, not shared components. Register shared route assembly correctly, load static web assets and use fingerprint-aware framework/CSS references. Verify JS/CSS responses are nonempty with correct MIME types and that controls actually become interactive.
+- src/SmallestAgent.Maui: real MAUI template/platform scaffold with shared component router and native clipboard/file-save actions. Load service endpoint configuration/environment for the native process. Direct-run loopback fallback is allowed and documented.
+- src/SmallestAgent.ServiceDefaults and MauiServiceDefaults: service discovery, OpenTelemetry logging/metrics/tracing and OTLP export, plus server health endpoints. Correct generated template imports/package versions; do not put application contracts in defaults projects.
+- Disable automatic retries on billable model POST requests in all defaults and the SDK. Use cancellation/deadlines; a generic resilience handler must not silently replay paid calls.
+- tests/SmallestAgent.Checks: meaningful executable checks for API, real SDK with mocked HTTP, parser/client, safe presentation and interactive shared components. Baseline bunit 2.14.0 and ASP.NET TestHost 10.0.8.
+- scripts/Generate-Lesson.ps1, local SVG/PlantUML templates and optional browser QA. Python may be used by an optional verification helper only; it is not an application/runtime dependency.
+
+WINDOWS COMMANDS AND PATH HANDLING
+- From Lesson 0, cd into 09-smallest-agent-aspire-maui, dotnet --version, dotnet workload list, dotnet restore SmallestAgent.slnx --configfile NuGet.Config, guarded root .env copy/edit and Start-Application.ps1.
+- Exact helper uses PSScriptRoot and regenerates lesson assets, then dotnet run --project src/SmallestAgent.AppHost --launch-profile http. Ctrl+C stops Aspire and its managed processes.
+- API at http://127.0.0.1:8400; Swagger /docs and generated /openapi/v1.json; browser companion http://127.0.0.1:5000; dashboard http://127.0.0.1:18889 with its own printed session login link. Do not record session tokens in prompts/docs/screenshots. Loopback HTTP development transport can be explicitly enabled while preserving dashboard login.
+- Start native Windows target explicitly from the dashboard to receive discovery/OTLP settings, or Start-Hybrid.ps1 while Aspire runs. Direct helper builds/runs native Windows target against API loopback fallback; AgentApi__BaseUrl may override it.
+- Both launchers locate their own folder so users never guess a nested path or use another application's interpreter. No npm or .venv launch commands for this edition.
+- Deep Windows paths must be handled concretely: the legacy WinUI XAML compiler can fail beyond MAX_PATH. Keep generated native intermediates/output under a short default temporary root (for example %TEMP%/SmallestAgent09) through Directory.Build.props and an overridable HybridArtifactsRoot. Keep all source in the requested project. Exclude stale bin/obj from default compilation. Document where the executable is emitted.
+- Pin compatible package versions and commit lockfiles. Build the ENTIRE solution including Windows MAUI. Do not call a browser-only success a completed native build.
+
+VISUAL REQUIREMENTS: INCLUDE ALL PRIOR REQUESTS
+Reference: https://github.com/luiscoco/Udemy-Claude-Agent-SDK-lesson01-app
+- About 21 px body text, at least 16 px secondary labels and 18 px code, large headings, generous line height and readable spacing.
+- Pastel blue input cards, lilac inspector, mint answer and alternating peach/mint/blue/lilac lesson cards. Rounded corners, blue/orange accents, fine borders and restrained shadows.
+- Persistent accessible light/dark theme; native labels/buttons, selected-link aria-current, visible focus, 44 px targets, Ctrl+Enter and a content skip link. Storage/clipboard failures have readable fallbacks.
+- Responsive grids stack on narrow browser/windows widths; bounded keyboard-accessible code/UML scroll, no horizontal page overflow. Native WebView and browser use the same shared UI.
+- Known local course astronaut asset with alternative text and provenance. Copy only specific safe source/assets, never whole folders containing credentials.
+- Syntax-colored C#, Razor, PowerShell, JSON and .env snippets with preserved indentation and copy feedback. Encode source before inserting highlight spans. Unknown code remains safe plain text.
+- Answers use Markdown with raw HTML disabled, HTML sanitization, active-content/image removal and colored fenced code. Markdig 1.3.2 and HtmlSanitizer 11.0.16 are verified baseline packages. Never insert raw model HTML.
+- Native clipboard and Markdown export should use native APIs/file-save picker; the browser uses its clipboard/download APIs. Be accurate about platform behavior that was actually tested.
+
+FIVE COMPLETE LEARNING SECTIONS
+1. Application lab: branded header, stack badges, host identity, API health/key-presence status, docs link and theme; hero/astronaut; three-step prompt/inspect/read explanation; Hello world! default, examples, trim-aware 4000 counter; Stream/Simple; immediate duplicate-submit lock, disabled busy input, Ctrl+Enter, elapsed timer and cleanup; real final answer, one model turn, SDK/server duration, actual token counts and stop reason; USD cost Not reported because Messages API does not return it; copy and Markdown export; bounded timestamped safe event timeline with expandable highlighted JSON; idle/loading/success/error states and specific safe error/snackbar/retry. No preloaded fake live answer.
+2. What you will learn: at least six meaningful cards on shared native/web Razor state, Aspire orchestration/discovery/telemetry, Web API boundaries, C# async streaming, progress versus final completion, safe presentation and the SDK distinction. Useful next-section links.
+3. How to run: exact Windows prerequisites, restore/configure/start/native-target/build/check commands, own working directories, dashboard/browser/API URLs, private model/system-prompt/token-limit configuration, precedence and restarts, health versus authenticated readiness and short artifact paths.
+4. Architecture/workflow: MAUI/shared Razor component -> typed C# client -> .NET 10 API -> official C# SDK -> Claude. Explain Aspire separately as the orchestration/discovery/telemetry control plane; it is not a fictional extra Claude request hop. Include an actual highlighted AppHost excerpt and five-lifeline UML sequence diagram with calls/returns, delta loop and success/provider/input alternatives.
+5. Code walkthrough: at least five actual highlighted C# excerpts with filenames, omitted-context notes and useful explanations. No JavaScript fetch or Python Agent SDK examples presented as the implementation of this native typed client.
+
+UML: ALL 16 SOURCE EXPLANATIONS
+- Exactly 16 numbered interactions: submit prompt; typed POST; validation/tools disabled; request parameters/CreateStreaming; SDK model transport boundary; model response observation; safe text delta; SSE frame; shared component state; normalized metrics/result; ResultMessage forwarding; sanitized answer/metrics; done enforcement; safe error without done; UI error/snackbar; missing-key/input rejection before SDK work.
+- EACH arrow gets its own pastel explanation card with matching number/title, actual filename, colored excerpt and explanation relating source to the arrow.
+- Deterministic PowerShell generator extracts stable source markers, validates 16 unique sequential SVG labels/card matches and fails on missing markers. Write embedded source JSON plus local SVG/PlantUML downloads and a separate actual AppHost orchestration excerpt.
+- Shared lesson data is embedded/loaded without relying on the API content root, so the native client can read it independently.
+- The C# SDK owns its model HTTP exchange. TextDelta and ResultMessage are presentation contracts, not raw Agent SDK event classes. No cost/turn/token fabrication.
+
+NAVIGATION REGRESSION
+- Every teaching tab must update content and active link on the same mounted shared component, including revisits and direct routes.
+- Preserve lab prompt/result when visiting lesson sections. Explicitly refresh URI-derived state on NavigationManager.LocationChanged and unsubscribe on disposal.
+- Include an actual interactive component/navigation regression and real browser link-click tests covering all five sections, all 16 cards, active link and retained prompt. Independent HTTP page loads alone do not prove working tabs.
+
+API AND STREAM SAFETY
+- GET /api/health returns connectivity/key presence only; never a key. POST query returns normalized snake_case result, turns, duration, input/output tokens, stop reason, is_error and nullable total_cost_usd. POST stream emits UTF-8 SSE message/error/done events. Provide actual generated Swagger/OpenAPI schemas and statuses.
+- Input is untrusted JSON. Trim prompt to 1–4000 characters, bound actual bytes at 32 KiB including chunked bodies, validate content type and compare Origin to actual scheme/Host/port without trusting forwarded headers.
+- Safe HTTP details: 400 malformed JSON/string type, 403 foreign origin, 413 oversized body, 415 wrong type, 422 invalid prompt, query 503 missing key and safe query 502 provider failure. No input echo or raw SDK exceptions.
+- Missing key/input failures do not invoke the SDK. After SSE headers, failures use error without done; no final result means failure. max_tokens/non-final stops remain errors even after done.
+- Server supports heartbeat comments, flush/backpressure, a three-minute linked cancellation deadline and disconnect cleanup. Only one iterator MoveNext may be outstanding; cancel/await it before DisposeAsync to avoid concurrent iterator disposal. Clean timers/tasks/listeners and client responses on every path.
+- Typed client uses ResponseHeadersRead, UTF-8 reader/CRLF/partial/multiline frame handling, runtime message/result checks, specific safe error details and final-result-plus-done enforcement. Both native and browser-host client code close responses and cancel owned work.
+- SDK request has one user message, model, bounded output limit, optional system prompt, Tools=[] and MaxRetries=0. Explicit configured key, null unrelated auth token and official base URL; no process-wide credential mutation.
+- Allowlist text, initialization/model and final usage/stop data; no raw provider objects, thinking, sessions, paths or environment. Redact exact key occurrences across provider text-chunk boundaries before sending text.
+- API alone loads root .env/.env.local and user secrets. Public shared contracts/client components have no SDK/config/secret imports.
+
+ENVIRONMENT EXAMPLE
+ANTHROPIC_API_KEY=sk-ant-replace-with-your-key
+CLAUDE_MODEL=claude-sonnet-5-5
+AGENT_MAX_TOKENS=1024
+AGENT_SYSTEM_PROMPT=You are a helpful assistant. Answer clearly and concisely.
+
+Create only .env.example. Placeholder is unconfigured; output limit 1-8192. Environment/user secrets override files; .env.local overrides .env. Never create/copy a real key. Ignore private env, build artifacts and caches. Public deployment/authentication/quotas/history/tool-enabled orchestration and unverified native platforms are separate future work.
+
+VERIFICATION AND DELIVERY
+- Restore/build entire solution with zero warnings/errors, including real Windows MAUI target and latest stable Aspire core. Test real SDK through mocked HTTP, input boundaries, redaction across deltas, failure/early stop/missing result, cancellation, SSE parser/client, safe Markdown/code and interactive shared-component navigation/state.
+- Start the actual Aspire AppHost and verify the dashboard endpoint, managed API/browser startup, service discovery, Swagger/schema, assets, health and no-key responses. Check framework/CSS/JS files are nonempty with correct MIME types and that the browser becomes interactive.
+- In Chrome when available, click every lesson link, retain prompt, verify all 16 colored cards/UML download, both modes, Ctrl+Enter, error recovery, persisted theme and narrow layout; save review screenshots.
+- Native build success is separate from native runtime/UI tests. Report honestly if the desktop window or OS clipboard/save picker was not exercised; never substitute browser verification for a native runtime claim.
+- Verify deterministic generation, diagram/card synchronization, identical prompt copies and no real credential copying. Tests spend no model credits; no live authentication/inference claim without a separately authorized key-backed run.
+- Stop only verification processes owned by this task. README gives exact commands/URLs and preview integration caveat; ASSETS records provenance; VERIFICATION records actual results and limits. Final answer identifies the new folder, matching prompt and concise Windows startup commands.

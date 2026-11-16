@@ -1,0 +1,15 @@
+@inject IJSRuntime JS
+@inject IHostActions Actions
+<div class="code-heading"><span>@Language.ToUpperInvariant() · @Source</span><button class="small-button" type="button" @onclick="Copy">@copyLabel</button></div>
+<pre tabindex="0"><code>@((MarkupString)Presentation.Highlight(Code))</code></pre>
+@code {
+    [Parameter] public string Code { get; set; } = "";
+    [Parameter] public string Language { get; set; } = "csharp";
+    [Parameter] public string Source { get; set; } = "SELECTED EXCERPT";
+    private string copyLabel = "Copy code";
+    private async Task Copy()
+    {
+        try { await Actions.CopyAsync(Code); copyLabel = "Copied"; }
+        catch (JSException) { copyLabel = "Select code to copy"; }
+    }
+}

@@ -1,0 +1,33 @@
+@startuml
+title The Smallest Agent - Aspire / MAUI / .NET 10 / C# Messages SDK
+autonumber
+actor "Student / Client" as Browser
+participant "MAUI / shared Razor client" as UI
+participant "ASP.NET Core endpoints / C# service" as API
+participant "Anthropic C# SDK" as SDK
+participant "Claude API" as Claude
+Browser -> UI: Run agent(prompt)
+UI -> API: POST /api/agent/stream
+alt Valid prompt and configured key
+  API -> API: Validate; tools disabled
+  API -> SDK: CreateStreaming(parameters)
+  SDK -> Claude: Prompt; no tools
+  Claude --> SDK: Model response
+  loop Each text delta
+    SDK --> API: Safe text delta (projected by service)
+    API --> UI: SSE message event
+    UI --> Browser: Update typed state (native or server)
+  end
+  alt Final result received
+    SDK --> API: ResultMessage fields (normalized by service)
+    API --> UI: SSE ResultMessage
+    UI --> Browser: Render answer + metrics
+    API --> UI: SSE done event
+  else SDK failure or missing final result
+    API --> UI: SSE error; no done
+    UI --> Browser: Error + snackbar
+  end
+else Missing key or invalid prompt
+  API --> UI: Key: SSE error / input: 422
+end
+@enduml

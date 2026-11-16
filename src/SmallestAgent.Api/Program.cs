@@ -1,0 +1,20 @@
+using SmallestAgent.Api.Services;
+using SmallestAgent.Shared.Services;
+using SmallestAgent.ServiceDefaults;
+var builder = WebApplication.CreateBuilder(args);
+builder.AddServiceDefaults();
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower);
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton(AgentSettings.Load(builder.Configuration, builder.Environment.ContentRootPath));
+builder.Services.AddHttpClient("Claude", client => client.Timeout = TimeSpan.FromMinutes(3));
+builder.Services.AddSingleton<IAgentRunner, ClaudeAgentRunner>();
+var app = builder.Build();
+app.UseExceptionHandler(handler => handler.Run(async context => { context.Response.StatusCode = 500; await context.Response.WriteAsJsonAsync(new { detail = "An unexpected server error occurred." }); }));
+app.UseSwagger(options => options.RouteTemplate = "openapi/{documentName}.json");
+app.UseSwaggerUI(options => { options.RoutePrefix = "docs"; options.SwaggerEndpoint("/openapi/v1.json", "Smallest Agent .NET 10 API"); });
+app.MapGet("/openapi.json", () => Results.Redirect("/openapi/v1.json")).ExcludeFromDescription();
+app.MapDefaultEndpoints();
+app.MapAgentEndpoints();
+app.Run();
+public partial class Program { }

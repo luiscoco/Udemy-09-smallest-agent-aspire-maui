@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile><MauiVersion>10.0.20</MauiVersion>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <!-- The Windows XAML compiler still encounters MAX_PATH in deep checkouts.
+       Keep only native generated artifacts short; source remains in this folder. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'SmallestAgent.Maui'">
+    <HybridArtifactsRoot Condition="'$(HybridArtifactsRoot)' == ''">$([System.IO.Path]::GetTempPath())SmallestAgent09\</HybridArtifactsRoot>
+    <BaseIntermediateOutputPath>$(HybridArtifactsRoot)obj\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(HybridArtifactsRoot)bin\</BaseOutputPath>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,18 @@
+using SmallestAgent.Shared.Services;
+using SmallestAgent.ServiceDefaults;
+using SmallestAgent.Web.Components;
+var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseStaticWebAssets();
+builder.AddServiceDefaults();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddSingleton<LessonCatalog>();
+builder.Services.AddScoped<IHostActions, BrowserHostActions>();
+builder.Services.AddSingleton(new HostInfo("Browser companion", "http://127.0.0.1:8400/docs"));
+builder.Services.AddHttpClient<IAgentApiClient, AgentApiClient>(http => { http.BaseAddress = new Uri(builder.Configuration["AgentApi:BaseUrl"] ?? "https+http://agent-api"); http.Timeout = Timeout.InfiniteTimeSpan; });
+var app = builder.Build();
+app.UseStaticFiles();
+app.UseAntiforgery();
+app.MapDefaultEndpoints();
+app.MapStaticAssets();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode().AddAdditionalAssemblies(typeof(SmallestAgent.Shared.Components.Routes).Assembly);
+app.Run();

@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><ProjectReference Include="../SmallestAgent.Shared/SmallestAgent.Shared.csproj" /><ProjectReference Include="../SmallestAgent.ServiceDefaults/SmallestAgent.ServiceDefaults.csproj" /></ItemGroup></Project>

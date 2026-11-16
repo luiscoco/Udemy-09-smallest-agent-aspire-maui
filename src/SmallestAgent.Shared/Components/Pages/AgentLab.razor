@@ -1,0 +1,126 @@
+@page "/"
+@page "/learn"
+@page "/setup"
+@page "/architecture"
+@page "/walkthrough"
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject IAgentApiClient Client
+@inject HostInfo Host
+@inject IHostActions Actions
+<PageTitle>The Smallest Agent · Aspire + MAUI + .NET 10</PageTitle>
+<a class="skip-link" href="#lesson-content">Skip to lesson</a>
+<header class="topbar"><a class="brand" href="/"><span class="brand-icon">✦</span><span>The Smallest Agent<small>LESSON 0 · ASPIRE + MAUI BLAZOR HYBRID</small></span></a><div class="header-actions"><span class="health"><i class="@(online ? "online" : "")"></i>@(online ? "Server online" : "Checking server")</span>@if (online && !configured) { <span class="warning">API key needed</span> }<a href="@Host.ApiDocsUrl" target="_blank" rel="noopener noreferrer">API docs ↗</a><button class="small-button" @onclick="ToggleTheme" disabled="@(module is null)" aria-label="Toggle light or dark theme">◐ Theme</button></div></header>
+<main>
+<section class="course-hero"><div><span class="eyebrow">ONE PROMPT. ONE RESPONSE. YOUR FIRST CLAUDE APPLICATION.</span><h1>The smallest agent.<br /><em>A whole new stack.</em></h1><p class="hero-lead">From “Hello world!” to a live Claude response. Explore the request, inspect Aspire telemetry and follow shared Razor components from the Windows app to the browser.</p><p class="panel-description">@Host.Name · Shared Razor UI · Private Web API</p><div class="hero-tags"><span>Aspire 13.6.4</span><span>MAUI Blazor Hybrid</span><span>.NET 10 / C#</span><span>Official Anthropic SDK</span><span>No tools · one turn</span></div></div><figure class="mascot"><img src="_content/SmallestAgent.Shared/astronaut.png" width="240" height="240" alt="Friendly course astronaut ready for a first agent adventure" /><figcaption>A small first step.<br />A foundation you can build on.</figcaption></figure></section>
+<nav class="lesson-nav" aria-label="Lesson sections">@foreach (var entry in Sections) { <a href="@entry.Path" aria-current="@(Section == entry.Id ? "page" : null)">@entry.Title</a> }</nav>
+<div id="lesson-content">
+@if (Section != "lab") { <Lesson Section="@Section" /> }
+else
+{
+<div class="section-intro lab-intro"><div><span class="eyebrow">YOUR FIRST CLAUDE REQUEST</span><h2>Start small. See everything.</h2><p>Send a question and follow the response as it arrives.</p></div><a href="/architecture">Explore the architecture →</a></div>
+<div class="lesson-flow"><div><span>01</span><strong>Write a prompt</strong><p>Tell Claude what you need.</p></div><div><span>02</span><strong>Watch the stream</strong><p>See the application events.</p></div><div><span>03</span><strong>Read the answer</strong><p>Inspect text, tokens and timing.</p></div></div>
+<div class="workspace"><div class="left-column">
+<section class="panel"><div class="panel-heading"><div><span class="eyebrow">01 / INPUT</span><h2>Your prompt</h2></div><span class="count">@prompt.Trim().Length / 4000</span></div><label class="field-label" for="prompt">What would you like Claude to do?</label><textarea id="prompt" rows="5" maxlength="4000" @bind="prompt" @bind:event="oninput" @onkeydown="Shortcut" disabled="@busy" aria-describedby="prompt-help"></textarea><p id="prompt-help" class="panel-description">One question, one response. Start with Hello world!</p><div class="examples"><span>TRY AN EXAMPLE</span>@foreach (var example in Examples) { <button class="example" disabled="@busy" @onclick="() => prompt = example">@example</button> }</div><div class="run-toolbar"><div class="mode-toggle" role="group" aria-label="Response mode"><button class="@(mode == "stream" ? "selected" : "")" @onclick='() => mode = "stream"' disabled="@busy" aria-pressed="@(mode == "stream")">Stream</button><button class="@(mode == "simple" ? "selected" : "")" @onclick='() => mode = "simple"' disabled="@busy" aria-pressed="@(mode == "simple")">Simple</button></div><button class="run-button" @onclick="Run" disabled="@(busy || module is null || string.IsNullOrWhiteSpace(prompt))">@(busy ? "Running…" : "Run agent ↗")</button></div><div class="run-footnote"><span>@(mode == "stream" ? "Watch text deltas as they arrive" : "Receive the completed answer")</span><kbd>Ctrl + Enter</kbd></div></section>
+<section class="panel answer-panel" aria-live="polite"><div class="panel-heading"><div><span class="eyebrow">02 / OUTPUT</span><h2>Agent’s answer</h2></div><span class="state" data-state="@state">@state</span></div>
+@if (!string.IsNullOrEmpty(error)) { <p class="error-message" role="alert">@error</p> }
+@if (busy) { <div class="loading"><span class="spinner" aria-hidden="true"></span><span>Claude is working…<strong>Elapsed @elapsed.ToString("0.0") s</strong></span></div> }
+@if (result is not null) { <div class="markdown">@((MarkupString)Presentation.MarkdownHtml(result.Result))</div><div class="answer-actions"><button class="small-button" @onclick="CopyAnswer">Copy answer</button><button class="small-button" @onclick="DownloadAnswer">Download .md</button></div><div class="stats"><span><strong>@result.NumTurns</strong>Model turn</span><span><strong>@result.DurationMs ms</strong>Server duration</span><span><strong>@result.InputTokens / @result.OutputTokens</strong>Input / output tokens</span><span><strong>@result.StopReason</strong>Stop reason</span><span><strong>Not reported</strong>USD cost</span></div> }
+else if (!busy && string.IsNullOrEmpty(error)) { <div class="answer-empty"><span>✦</span><p>Your first answer will appear here.</p><small>Write a prompt and select Run agent.</small></div> }
+</section></div>
+<section class="panel inspector stream-inspector"><div class="panel-heading"><div><span class="eyebrow">03 / INSPECT</span><h2>Inside the response</h2></div><span class="count">@messages.Count events</span></div><p class="panel-description">@(mode == "stream" ? "A live timeline of safe application events. Expand any row to inspect its JSON." : "Simple mode returns one final result. Choose Stream to follow text deltas.")</p><div class="timeline" role="log" aria-label="Response event timeline">
+@if (messages.Count == 0) { <div class="empty-stream"><span class="empty-symbol">⌁</span><h3>The journey starts with your prompt.</h3><p>SystemMessage, TextDelta and ResultMessage are this application’s public event types.</p><div class="sample-flow">prompt <span>→</span> stream <span>→</span> result</div></div> }
+@foreach (var row in messages) { <article class="timeline-row"><span class="timeline-dot"></span><div class="event-body"><div class="event-heading"><span class="badge" data-type="@row.Type">@row.Type</span><time>+@row.Elapsed.ToString("0.00")s</time></div><p>@row.Summary</p><details><summary>View JSON</summary><CodeBlock Code="@row.Json" Language="json" /></details></div></article> }
+</div></section></div>
+<aside class="lesson-note"><strong>The same lesson, with native C#.</strong><p>Your prompt travels through MAUI Blazor Hybrid / browser companion → typed C# client → .NET 10 Web API → official C# SDK → Claude. Aspire orchestrates services, discovery and telemetry. This edition uses the Messages API; the separate Claude Agent SDK in the earlier apps provides a CLI-backed agent loop.</p><p>The API key stays on the server. Sending a real prompt may use API credits.</p><a href="/architecture">Explore the architecture →</a></aside>
+}
+</div><footer>LESSON 0 · The Smallest Agent · Aspire + MAUI + .NET 10 · <a href="/setup">Setup guide</a></footer>
+</main>
+@if (!string.IsNullOrEmpty(notice)) { <div class="snackbar" role="status">@notice <button class="small-button" @onclick='() => notice = ""' aria-label="Dismiss notification">Dismiss</button></div> }
+@code {
+    private static readonly (string Id, string Path, string Title)[] Sections = [("lab", "/", "Application lab"), ("learn", "/learn", "What you will learn"), ("setup", "/setup", "How to run"), ("architecture", "/architecture", "Architecture & workflow"), ("walkthrough", "/walkthrough", "Code walkthrough")];
+    private static readonly string[] Examples = ["Hello world!", "Explain what an AI agent is in one sentence.", "What is Blazor?"];
+    private string Section => Sections.FirstOrDefault(x => x.Path.TrimStart('/') == Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0]).Id ?? "lab";
+    private IJSObjectReference? module;
+    private CancellationTokenSource? request;
+    private string prompt = "Hello world!", mode = "stream", state = "idle", error = "", notice = "";
+    private bool busy, online, configured, disposed;
+    private double elapsed;
+    private DateTime started;
+    private CancellationTokenSource? clock;
+    private AgentResult? result;
+    private readonly List<TimelineRow> messages = [];
+    private sealed record TimelineRow(string Type, string Summary, string Json, double Elapsed);
+    protected override void OnInitialized()
+    {
+        // All five routes reuse this component with the same (empty) parameters.
+        // Navigation changes must explicitly refresh URI-derived content/state.
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        if (!disposed) _ = InvokeAsync(StateHasChanged);
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/SmallestAgent.Shared/agent.js");
+        await module.InvokeVoidAsync("initialize");
+        try { var health = await Client.HealthAsync(); online = true; configured = health.ApiKeyConfigured; }
+        catch { notice = "The Web API could not be reached. Start Aspire and check the API resource."; }
+        StateHasChanged();
+    }
+    private async Task Run()
+    {
+        var trimmed = Contracts.ValidatePrompt(prompt);
+        if (busy || trimmed is null || module is null) return;
+        busy = true; state = "running"; error = ""; notice = ""; result = null; messages.Clear(); elapsed = 0;
+        started = DateTime.UtcNow;
+        clock = new CancellationTokenSource();
+        _ = Tick(clock.Token);
+        try
+        {
+            request = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            if (mode == "stream")
+            {
+                await foreach (var message in Client.StreamAsync(trimmed, request.Token)) await ReceiveMessage(message);
+            }
+            else result = await Client.QueryAsync(trimmed, request.Token);
+            if (result is null) throw new InvalidOperationException("The response contained no final result.");
+            state = result.IsError ? "error" : "success";
+            if (result.IsError) error = "Claude stopped early (" + result.StopReason + "). Increase the output limit or try a shorter prompt.";
+        }
+        catch (Exception exception) when (exception is AgentApiException or HttpRequestException or InvalidOperationException or OperationCanceledException or JsonException)
+        {
+            state = "error"; error = exception is OperationCanceledException ? "The request timed out. Try again." : exception is AgentApiException ? exception.Message : "The request failed. Check the API resource and server configuration."; notice = error;
+        }
+        finally { busy = false; request?.Dispose(); request = null; clock.Cancel(); clock.Dispose(); clock = null; elapsed = (DateTime.UtcNow - started).TotalSeconds; }
+    }
+    private Task ReceiveMessage(ClientMessage message) => InvokeAsync(() =>
+    {
+        if (disposed) return;
+        var type = message.Type;
+        var data = message.Data;
+        if (type == "ResultMessage") result = data.Deserialize<AgentResult>(Contracts.Json) ?? throw new InvalidOperationException("Invalid final result.");
+        if (messages.Count < 500) messages.Add(new(type, message.Summary, JsonSerializer.Serialize(message, new JsonSerializerOptions { WriteIndented = true }), (DateTime.UtcNow - started).TotalSeconds));
+        StateHasChanged();
+    });
+    private async Task Tick(CancellationToken token)
+    {
+        try { using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(200)); while (await timer.WaitForNextTickAsync(token)) await InvokeAsync(() => { elapsed = (DateTime.UtcNow - started).TotalSeconds; StateHasChanged(); }); }
+        catch (OperationCanceledException) { }
+    }
+    private async Task Shortcut(KeyboardEventArgs e) { if (e.CtrlKey && e.Key == "Enter") await Run(); }
+    private async Task ToggleTheme() { if (module is not null) await module.InvokeVoidAsync("toggleTheme"); }
+    private async Task CopyAnswer() { try { if (module is not null && result is not null) { await Actions.CopyAsync(result.Result); notice = "Answer copied."; } } catch (Exception) { notice = "Clipboard unavailable. Select the answer to copy it."; } }
+    private async Task DownloadAnswer() { if (result is null) return; try { notice = await Actions.SaveAsync("claude-answer.md", "text/markdown", result.Result); } catch { notice = "The answer could not be saved. Copy it instead."; } }
+    public async ValueTask DisposeAsync()
+    {
+        disposed = true;
+        Navigation.LocationChanged -= OnLocationChanged;
+        clock?.Cancel();
+        request?.Cancel();
+        if (module is not null) { try { await module.DisposeAsync(); } catch (JSDisconnectedException) { } }
+    }
+}

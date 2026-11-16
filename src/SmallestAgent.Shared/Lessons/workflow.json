@@ -1,0 +1,146 @@
+[
+  {
+    "number": 1,
+    "title": "Run agent (prompt)",
+    "source": "src/SmallestAgent.Shared/Components/Pages/AgentLab.razor",
+    "language": "csharp",
+    "text": "The Blazor component trims the prompt and locks duplicate submissions before starting the request.",
+    "code": "var trimmed = Contracts.ValidatePrompt(prompt);\nif (busy || trimmed is null || module is null) return;\nbusy = true; state = \"running\"; error = \"\"; notice = \"\"; result = null; messages.Clear(); elapsed = 0;\nstarted = DateTime.UtcNow;\nclock = new CancellationTokenSource();",
+    "explanation": "Neither client receives the API key. Busy state disables controls while a periodic timer measures elapsed time."
+  },
+  {
+    "number": 2,
+    "title": "POST /api/agent/stream",
+    "source": "src/SmallestAgent.Shared/Services/AgentApiClient.cs",
+    "language": "csharp",
+    "text": "A shared typed C# client posts JSON and requests response headers without buffering the SSE body.",
+    "code": "using var request = new HttpRequestMessage(HttpMethod.Post, \"/api/agent/stream\") { Content = JsonContent.Create(new PromptRequest(prompt), options: Contracts.Json) };\nusing var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);\nawait EnsureSuccess(response, token);\nawait using var stream = await response.Content.ReadAsStreamAsync(token);",
+    "explanation": "The client runs natively in MAUI and on the Blazor server in the browser companion. Aspire supplies the API address through service discovery; neither client has the API key."
+  },
+  {
+    "number": 3,
+    "title": "Validate; tools disabled",
+    "source": "src/SmallestAgent.Api/Services/AgentEndpoints.cs",
+    "language": "csharp",
+    "text": "Validate the browser origin and JSON content type before reading the bounded body.",
+    "code": "var origin = request.Headers.Origin.ToString();\n// Host retains the browser authority; do not trust unconfigured forwarded headers.\nif (origin.Length > 0 && origin != $\"{request.Scheme}://{request.Host}\") return (null, Error(403, \"Origin is not allowed.\"));\nif (!request.HasJsonContentType()) return (null, Error(415, \"Use Content-Type: application/json.\"));\ntry",
+    "explanation": "Host includes the browser port. Foreign origins are rejected without trusting forwarded headers. Prompt validation and tools configuration are shown in the server and SDK excerpts."
+  },
+  {
+    "number": 4,
+    "title": "CreateStreaming(parameters)",
+    "source": "src/SmallestAgent.Api/Services/ClaudeAgentRunner.cs",
+    "language": "csharp",
+    "text": "Build a typed C# request with a model, output limit, one user message and no tools.",
+    "code": "var parameters = new MessageCreateParams\n{\n    Model = settings.Model, MaxTokens = settings.MaxTokens,\n    Messages = [new UserMessageParam { Content = prompt }],\n    System = settings.SystemPrompt, Tools = []\n};",
+    "explanation": "This is the official Messages API client. It does not launch a CLI or automatically provide the separate Agent SDK loop."
+  },
+  {
+    "number": 5,
+    "title": "Prompt; no tools",
+    "source": "src/SmallestAgent.Api/Services/ClaudeAgentRunner.cs",
+    "language": "csharp",
+    "text": "The C# SDK owns the HTTPS request to Claude and exposes its response as IAsyncEnumerable.",
+    "code": "await foreach (var chunk in client.Messages.CreateStreaming(parameters, cancellationToken: cancellationToken))\n{\n    // Read the SDK's discriminated JSON union; never forward its raw object.\n    var data = JsonSerializer.SerializeToElement(chunk);\n    var type = data.GetProperty(\"type\").GetString();\n    if (type == \"message_start\" && data.TryGetProperty(\"message\", out var start) && start.TryGetProperty(\"usage\", out var usage))",
+    "explanation": "This iterator is the provider boundary in the diagram. The application does not hand-write a second model HTTP client."
+  },
+  {
+    "number": 6,
+    "title": "Model response",
+    "source": "src/SmallestAgent.Api/Services/ClaudeAgentRunner.cs",
+    "language": "csharp",
+    "text": "Inspect typed SDK stream data and accumulate only text deltas and usage fields.",
+    "code": "if (type == \"message_start\" && data.TryGetProperty(\"message\", out var start) && start.TryGetProperty(\"usage\", out var usage))\n    inputTokens = usage.TryGetProperty(\"input_tokens\", out var count) ? count.GetInt64() : 0;\nif (type == \"content_block_delta\" && data.TryGetProperty(\"delta\", out var delta) && delta.GetProperty(\"type\").GetString() == \"text_delta\")\n{\n    var text = delta.GetProperty(\"text\").GetString() ?? \"\";\n    answer.Append(text);\n    var safeText = StreamText(ref pendingText, text);",
+    "explanation": "The excerpt reads the SDK union through its JSON converter. Raw SDK objects, IDs and thinking blocks are never forwarded."
+  },
+  {
+    "number": 7,
+    "title": "Safe text delta",
+    "source": "src/SmallestAgent.Api/Services/ClaudeAgentRunner.cs",
+    "language": "csharp",
+    "text": "Project a text delta into the public application event contract.",
+    "code": "var text = delta.GetProperty(\"text\").GetString() ?? \"\";\nanswer.Append(text);\nvar safeText = StreamText(ref pendingText, text);\nif (safeText.Length > 0) yield return new(\"TextDelta\", \"Answer text received\", new { text = safeText });",
+    "explanation": "TextDelta is an application label, not an Agent SDK event class. The full answer is accumulated independently for the final result."
+  },
+  {
+    "number": 8,
+    "title": "SSE message event",
+    "source": "src/SmallestAgent.Api/Services/AgentEndpoints.cs",
+    "language": "csharp",
+    "text": "Encode named UTF-8 SSE frames and flush the response to the browser.",
+    "code": "async Task Send(string name, object value)\n{\n    await context.Response.WriteAsync($\"event: {name}\\ndata: {JsonSerializer.Serialize(value, Contracts.Json)}\\n\\n\", context.RequestAborted);\n    await context.Response.Body.FlushAsync(context.RequestAborted);\n}",
+    "explanation": "A blank line ends each event. Disabling buffering helps intermediate messages arrive promptly. The shared C# parser handles split bytes, Unicode and CRLF."
+  },
+  {
+    "number": 9,
+    "title": "Update typed state",
+    "source": "src/SmallestAgent.Shared/Components/Pages/AgentLab.razor",
+    "language": "csharp",
+    "text": "Each typed event updates the shared Razor component state.",
+    "code": "private Task ReceiveMessage(ClientMessage message) => InvokeAsync(() =>\n{\n    if (disposed) return;\n    var type = message.Type;\n    var data = message.Data;\n    if (type == \"ResultMessage\") result = data.Deserialize<AgentResult>(Contracts.Json) ?? throw new InvalidOperationException(\"Invalid final result.\");\n    if (messages.Count < 500) messages.Add(new(type, message.Summary, JsonSerializer.Serialize(message, new JsonSerializerOptions { WriteIndented = true }), (DateTime.UtcNow - started).TotalSeconds));\n    StateHasChanged();\n});",
+    "explanation": "InvokeAsync keeps rendering on the correct context in the native WebView or browser circuit. The visible timeline is bounded without losing the final result."
+  },
+  {
+    "number": 10,
+    "title": "ResultMessage fields",
+    "source": "src/SmallestAgent.Api/Services/ClaudeAgentRunner.cs",
+    "language": "csharp",
+    "text": "Only a completed Claude stream becomes a normalized final result.",
+    "code": "if (!complete || string.IsNullOrEmpty(stopReason)) throw new InvalidOperationException(\"Claude stream ended before completion.\");\nif (pendingText.Length > 0) yield return new(\"TextDelta\", \"Answer text received\", new { text = pendingText });\nvar result = new AgentResult(Redact(answer.ToString()), 1, timer.ElapsedMilliseconds, inputTokens, outputTokens,\n    stopReason, stopReason is not (\"end_turn\" or \"stop_sequence\"));\nyield return new(\"ResultMessage\", result.IsError ? \"Response stopped early\" : \"Response complete\", result);",
+    "explanation": "The one model turn, duration, token counts and stop reason come from this run. Non-final stops such as max_tokens are marked as errors. The Messages API does not report a USD cost."
+  },
+  {
+    "number": 11,
+    "title": "SSE ResultMessage",
+    "source": "src/SmallestAgent.Api/Services/AgentEndpoints.cs",
+    "language": "csharp",
+    "text": "Forward each safe event and remember whether a final result was observed.",
+    "code": "    var message = iterator.Current;\n    if (message.Data is AgentResult) finalReceived = true;\n    await Send(\"message\", message);\n    next = iterator.MoveNextAsync().AsTask();\n}",
+    "explanation": "A single outstanding MoveNextAsync also lets the API send heartbeat comments while inference pauses. Cancellation closes the iterator; missing final result is a failure."
+  },
+  {
+    "number": 12,
+    "title": "Render answer + metrics",
+    "source": "src/SmallestAgent.Shared/Services/Presentation.cs",
+    "language": "csharp",
+    "text": "Render Markdown with raw HTML disabled, sanitize it and highlight escaped code blocks.",
+    "code": "    public static string MarkdownHtml(string source)\n    {\n        var sanitizer = new HtmlSanitizer();\n        sanitizer.AllowedTags.Remove(\"img\");\n        sanitizer.AllowedAttributes.Remove(\"style\");\n        var safe = sanitizer.Sanitize(Markdown.ToHtml(source, Pipeline));\n        return Regex.Replace(safe, \"<pre><code[^>]*>([\\\\s\\\\S]*?)</code></pre>\", m => $\"<pre><code>{Highlight(WebUtility.HtmlDecode(m.Groups[1].Value))}</code></pre>\");\n    }\n}",
+    "explanation": "The Blazor answer panel uses only this sanitized markup. Code tokens are HTML-encoded before colored spans are inserted. Result fields also populate the metric tiles."
+  },
+  {
+    "number": 13,
+    "title": "SSE done event",
+    "source": "src/SmallestAgent.Shared/Services/AgentApiClient.cs",
+    "language": "csharp",
+    "text": "The C# SSE client requires both a final result and the terminal done event.",
+    "code": "    if (frame.Event == \"done\") { done = true; break; }\n}\nif (!finalReceived || !done) throw new AgentApiException(\"The stream closed before the final answer was confirmed. Please try again.\");",
+    "explanation": "UTF-8 StreamReader and line framing handle split codepoints, CRLF and comments. Disposing the response closes transport. Completion never overrides a failed SDK result."
+  },
+  {
+    "number": 14,
+    "title": "SSE error; no done",
+    "source": "src/SmallestAgent.Api/Services/AgentEndpoints.cs",
+    "language": "csharp",
+    "text": "After streaming starts, failures become an SSE error event without done.",
+    "code": "    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { }\n    catch { if (!context.RequestAborted.IsCancellationRequested) await Send(\"error\", new { detail = Contracts.Failure }); }\n}).Accepts<PromptRequest>(\"application/json\").Produces(200, contentType: \"text/event-stream\").Produces(400).Produces(403).Produces(413).Produces(415).Produces(422);",
+    "explanation": "Raw provider exceptions are kept out of the browser. Request disconnects cancel the SDK, and the linked token also enforces a three-minute deadline."
+  },
+  {
+    "number": 15,
+    "title": "Error + snackbar",
+    "source": "src/SmallestAgent.Shared/Components/Pages/AgentLab.razor",
+    "language": "csharp",
+    "text": "The component restores controls and shows a readable error state with a notification.",
+    "code": "catch (Exception exception) when (exception is AgentApiException or HttpRequestException or InvalidOperationException or OperationCanceledException or JsonException)\n{\n    state = \"error\"; error = exception is OperationCanceledException ? \"The request timed out. Try again.\" : exception is AgentApiException ? exception.Message : \"The request failed. Check the API resource and server configuration.\"; notice = error;\n}\nfinally { busy = false; request?.Dispose(); request = null; clock.Cancel(); clock.Dispose(); clock = null; elapsed = (DateTime.UtcNow - started).TotalSeconds; }",
+    "explanation": "The typed client propagates safe server detail for HTTP failures, with a status-code fallback. Clipboard failures also have a user-visible fallback."
+  },
+  {
+    "number": 16,
+    "title": "Key: SSE error / input: 422",
+    "source": "src/SmallestAgent.Api/Services/AgentEndpoints.cs",
+    "language": "csharp",
+    "text": "Reject a missing key before any SDK iteration; invalid input is rejected before the SSE response begins.",
+    "code": "if (!settings.Configured) { await Send(\"error\", new { detail = Contracts.MissingKey }); return; }\nvar finalReceived = false;",
+    "explanation": "Missing-key stream errors explain the root .env setup. Simple mode returns HTTP 503. Prompt validation produces 422 and neither path spends model credits."
+  }
+]

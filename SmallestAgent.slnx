@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SmallestAgent.Api/SmallestAgent.Api.csproj" />
+    <Project Path="src/SmallestAgent.AppHost/SmallestAgent.AppHost.csproj" />
+    <Project Path="src/SmallestAgent.Maui/SmallestAgent.Maui.csproj" />
+    <Project Path="src/SmallestAgent.MauiServiceDefaults/SmallestAgent.MauiServiceDefaults.csproj" />
+    <Project Path="src/SmallestAgent.ServiceDefaults/SmallestAgent.ServiceDefaults.csproj" />
+    <Project Path="src/SmallestAgent.Shared/SmallestAgent.Shared.csproj" />
+    <Project Path="src/SmallestAgent.Web/SmallestAgent.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SmallestAgent.Checks/SmallestAgent.Checks.csproj" />
+  </Folder>
+</Solution>
